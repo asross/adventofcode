@@ -38,4 +38,4 @@
 
 require_relative './instruction_set'
 main_set = InstructionSet.new(File.read('./instructions'))
-puts main_set.final_value_of('a')
+puts main_set.evaluate('a')

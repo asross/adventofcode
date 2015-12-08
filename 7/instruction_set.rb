@@ -1,39 +1,33 @@
-require_relative './bit_value'
-require_relative './instruction'
-
 class InstructionSet
-  attr_reader :wires
+  OPERATORS = { 'OR' => :|, 'AND' => :&, 'RSHIFT' => :>>, 'LSHIFT' => :<< }
+
+  def sanitize(input)
+    input = input.strip
+    return input.to_i if input =~ /\d+/
+    OPERATORS.each { |op, sym| return sym if input == op }
+    input
+  end
 
   def initialize(instructions)
-    @wires = {}
-
-    @remaining_instructions = instructions.lines.map do |line|
+    @wires = instructions.lines.each_with_object({}) do |line, h|
       input_expr, output = line.split(' -> ').map(&:strip)
-      inputs = input_expr.scan(/(?:[a-z]+|\d+)/).map do |input|
-        @wires[input] ||= BitValue.new(input)
-      end
-      output = @wires[output] ||= BitValue.new(output)
-      operator = input_expr[/RSHIFT|LSHIFT|AND|NOT|OR/]
-      Instruction.new(inputs, output, operator)
-    end
-
-    execute!
-  end
-
-  def execute!
-    made_progress = true
-    while made_progress
-      made_progress = false
-      @remaining_instructions.reject! do |i|
-        if i.executable?
-          i.execute!
-          made_progress = true
-        end
-      end
+      h[output] = input_expr.split.map(&method(:sanitize))
     end
   end
 
-  def final_value_of(wire_name)
-    @wires[wire_name].value
+  def evaluate(v)
+    return v if v.is_a?(Fixnum)
+    e = @wires[v]
+    return e if e.is_a?(Fixnum)
+    @wires[v] = case e.length
+    when 1
+      evaluate(e.first)
+    when 2
+      r = evaluate(e.last)
+      15.downto(0).map { |n| (~r)[n] }.join.to_i(2)
+    when 3
+      v1, operator, v2 = e
+      evaluate(v1).send(operator, evaluate(v2))
+    end
   end
 end
